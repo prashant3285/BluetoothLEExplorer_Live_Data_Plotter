@@ -1,5 +1,7 @@
 # Live BLE Notify Data Processing/Plotting
 
+Status: Repo forked
+
 Objective is to Mod the code in a way so that
 
 1) Can notify to a sevice (sensor data)
