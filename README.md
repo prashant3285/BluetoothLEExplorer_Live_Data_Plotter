@@ -1,4 +1,4 @@
-# Live BLE Notify Data Processing/Plotting
+# Realtime BLE Notify Data Processing/Plotting
 
 Status: Repo forked
 
