@@ -1,3 +1,11 @@
+# Live BLE Notify Data Processing/Plotting
+
+Objective is to Mod the code in a way so that
+
+1) Can notify to a sevice (sensor data)
+2) Can pass the data recieved to an exisitng plotting tool like **[SerialPlot] (https://hackaday.io/project/5334-serialplot-realtime-plotting-software)**
+3) Data processing and ploting needs to happen in realtime
+
 # Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
