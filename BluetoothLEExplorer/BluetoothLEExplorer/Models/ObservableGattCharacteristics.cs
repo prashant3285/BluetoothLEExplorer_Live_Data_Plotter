@@ -16,6 +16,10 @@ using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Security.Cryptography;
 using Windows.Storage.Streams;
 using GattHelper.Converters;
+using Windows.Networking.Sockets;
+using Windows.Networking;
+using Windows.System.Threading;
+using System.Collections;
 
 namespace BluetoothLEExplorer.Models
 {
@@ -35,6 +39,7 @@ namespace BluetoothLEExplorer.Models
             Hex,
             UTF8,
             UTF16,
+            Stream,
             Unsupported
         }
 
@@ -47,6 +52,7 @@ namespace BluetoothLEExplorer.Models
         /// byte array representation of the characteristic value
         /// </summary>
         private byte[] data;
+        public Queue qt = new Queue(); // *MOD* - Queue to collect incoming BLE data and pass on to TCPIP at a regular time period
 
         /// <summary>
         /// Source for <see cref="Characteristic"/>
@@ -562,7 +568,9 @@ namespace BluetoothLEExplorer.Models
             return false;
         }
 
-        /// <summary>
+        private bool SocketAlready = false; // *MOD* - Added flag to check if a TCPIP connection already exist
+
+                /// <summary>
         /// Sets the notify characteristic
         /// </summary>
         /// <returns>Set notify task</returns>
@@ -584,6 +592,11 @@ namespace BluetoothLEExplorer.Models
                             GattClientCharacteristicConfigurationDescriptorValue.Notify);
                 if (result == GattCommunicationStatus.Success)
                 {
+                    if (!SocketAlready) // *MOD* - On service Notified, Open new TCPIP socket if there is none existing, else skip 
+                    {
+                        Connect();
+                    }
+
                     Debug.WriteLine("Successfully registered for notifications");
                     IsNotifySet = true;
                     return true;
@@ -643,6 +656,10 @@ namespace BluetoothLEExplorer.Models
                 {
                     Debug.WriteLine("Successfully un-registered for notifications");
                     IsNotifySet = false;
+
+                    await Task.Delay(500).ContinueWith(t => Close()); // *MOD* - Close the TCPIP socket as soon as service is denotified
+                    SocketAlready = false; // *MOD* - Change flag for TCPIP socket 
+
                     return true;
                 }
                 else if (result == GattCommunicationStatus.ProtocolError)
@@ -863,7 +880,125 @@ namespace BluetoothLEExplorer.Models
                     Value = "Error: Invalid UTF16 String";
                 }
             }
+            else if (DisplayType == DisplayTypes.Stream)
+            {
+                try
+                {
+                    Value = GattConvert.ToUTF16String(rawData);
+
+                    Send(Value + "\n"); // *MOD* Send data as soon as recieved from BLE device
+
+                    // *MOD* optionaly you can add value to queue and send the data at a desired interval using timer
+                    // qt.Enqueue(Value); // *MOD*uncomment this to add value to queue
+                }
+                catch (Exception)
+                {
+                    Value = "Error: Invalid Custom String";
+                }
+            }
         }
+
+
+        private StreamSocket _socket;
+        private DataWriter _writer;
+        public delegate void Error(string message);
+       
+        public string Ip = "127.0.0.1"; // *MOD* - Localhost or your desired server IP
+        public int Port = 12345; // *MOD* - Your desired port
+
+        public async void Connect() // *MOD* This method connects to a server listenting for connection 
+        {
+            try
+            {
+                var hostName = new HostName(Ip);
+                _socket = new StreamSocket();
+                await _socket.ConnectAsync(hostName, Port.ToString());
+                _writer = new DataWriter(_socket.OutputStream);
+                
+                SocketAlready = true; // *MOD* - Once TCPIP socket is established change the flag
+                await Task.Delay(300).ContinueWith(t => StopWatch());  // *MOD* -Comment this line you dont want data to be send at custom timed interval
+
+            }
+            catch (Exception ex)
+            {
+
+                Debug.WriteLine(ex.ToString());
+                SocketAlready = false;
+
+            }
+        }
+
+        public async void Send(string message) // *MOD* - This method sends your data over TCPIP
+        {
+
+
+            Byte[] encodedBytes = Encoding.ASCII.GetBytes(message);
+
+            _writer.WriteBytes(encodedBytes);
+
+            try
+            {
+                await _writer.StoreAsync();
+                await _writer.FlushAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.ToString());
+            }
+        }
+
+        public void Close() // *MOD*  - This method close the existing TCPIP connection
+        {
+            _writer.DetachStream();
+            _writer.Dispose();
+            _socket.Dispose();
+        }
+
+           
+        
+        ThreadPoolTimer _atimer = null;
+
+        public void StopWatch() // *MOD* - This is an optonal timer in case you want to stream incoming data at a regular interval
+        {
+            _atimer = ThreadPoolTimer.CreatePeriodicTimer(_clockTimer_Tick, TimeSpan.FromMilliseconds(8)); // *MOD* Set time here 
+
+        }
+
+
+        private void _clockTimer_Tick(ThreadPoolTimer timer)
+        {
+
+            // *MOD* - Check if queue onot empty and not null, then perform operation specific to Characterestic UUID
+            /* 
+            if (qt.Count != 0)
+            {
+
+                String first = qt.Peek()?.ToString();
+                if (first != null)
+                {
+
+                    if (UUID == "00004a37-0000-1000-8000-00805f9b34fb")
+                    {
+                      
+                        Int32.TryParse(first, out yourData1);
+                        qt.Dequeue();
+
+                        yourData2  = 2 * YourData1; // Your desired operations
+            
+                        Send(yourData1 + "," + yourData2 + "\n"); // *MOD* send your data stream seperated by "," and ending with \n
+                    }
+                }
+            }
+            
+             */
+
+            if (!SocketAlready)  // *MOD* - Close timer as when the service is denotified
+            {
+                _atimer.Cancel();
+                
+            }
+        }
+
 
         /// <summary>
         /// Event to notify when this object has changed

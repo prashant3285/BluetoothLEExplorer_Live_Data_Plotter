@@ -84,6 +84,11 @@
                                 <Thickness>0,0,-45,0</Thickness>
                             </Setter.Value>
                         </Setter>
+                        <Setter Target="radioButtonS.(FrameworkElement.Margin)">
+                            <Setter.Value>
+                                <Thickness>0,0,-45,0</Thickness>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Target="ReadAgainButton.(RelativePanel.AlignLeftWithPanel)" Value="True"/>
                         <Setter Target="ReadAgainButton.(RelativePanel.AlignTopWith)" Value=""/>
                         <Setter Target="ReadAgainButton.(RelativePanel.Below)" Value="Value"/>
@@ -118,6 +123,11 @@
                             </Setter.Value>
                         </Setter>
                         <Setter Target="radioButton3.(FrameworkElement.Margin)">
+                            <Setter.Value>
+                                <Thickness>0,0,-45,0</Thickness>
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Target="radioButtonS.(FrameworkElement.Margin)">
                             <Setter.Value>
                                 <Thickness>0,0,-45,0</Thickness>
                             </Setter.Value>
@@ -222,6 +232,7 @@
                         <RadioButton x:Name="radioButton1" Content="Hex" IsChecked="{Binding Characteristic.DisplayType, Mode=TwoWay, Converter={StaticResource DisplayTypeToBooleanConverter}, ConverterParameter=Hex }" Width="100" GroupName="b"/>
                         <RadioButton x:Name="radioButton2" Content="UTF8" IsChecked="{Binding Characteristic.DisplayType, Mode=TwoWay, Converter={StaticResource DisplayTypeToBooleanConverter}, ConverterParameter=UTF8 }" Width="100" GroupName="c"/>
                         <RadioButton x:Name="radioButton3" Content="UTF16" IsChecked="{Binding Characteristic.DisplayType, Mode=TwoWay, Converter={StaticResource DisplayTypeToBooleanConverter}, ConverterParameter=UTF16 }" Width="100" GroupName="d"/>
+                        <RadioButton x:Name="radioButtonS" Content="Stream" IsChecked="{Binding Characteristic.DisplayType, Mode=TwoWay, Converter={StaticResource DisplayTypeToBooleanConverter}, ConverterParameter=Stream }" Width="100" GroupName="e"/>
                     </StackPanel>
                 </RelativePanel>
             </StackPanel>
