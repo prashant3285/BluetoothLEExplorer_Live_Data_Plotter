@@ -884,9 +884,12 @@ namespace BluetoothLEExplorer.Models
             {
                 try
                 {
-                    Value = GattConvert.ToUTF16String(rawData);
+                    Value = GattConvert.ToInt64(rawData).ToString();
 
-                    Send(Value + "\n"); // *MOD* Send data as soon as recieved from BLE device
+                    if (SocketAlready)
+                    {
+                        Send(Value + "\n"); // *MOD* Send data as soon as recieved from BLE device
+                    }
 
                     // *MOD* optionaly you can add value to queue and send the data at a desired interval using timer
                     // qt.Enqueue(Value); // *MOD*uncomment this to add value to queue
