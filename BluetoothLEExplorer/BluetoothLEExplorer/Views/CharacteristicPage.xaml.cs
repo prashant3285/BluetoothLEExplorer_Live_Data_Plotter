@@ -58,10 +58,21 @@ namespace BluetoothLEExplorer.Views
 
             WriteValue.Background = new SolidColorBrush(Windows.UI.Colors.White);
         }
-		
+
         private void DescriptorsListView_ItemClick(object sender, ItemClickEventArgs e)
         {
             ViewModel.SelectedDescriptor = (ObservableGattDescriptors)e.ClickedItem;
+        }
+
+        /// <summary>
+        /// Detect when a user presses enter and writes the value to the selected GattCharacterisitc.
+        /// </summary>
+        public void DetectEnter_Keydown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                ViewModel.WriteValue();
+            }
         }
     }
 }

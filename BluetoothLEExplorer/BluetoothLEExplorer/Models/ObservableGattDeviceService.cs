@@ -19,7 +19,7 @@ namespace BluetoothLEExplorer.Models
     /// <summary>
     /// Wrapper around <see cref="GattDeviceService"/> to make it easier to use
     /// </summary>
-    public class ObservableGattDeviceService : INotifyPropertyChanged
+    public class ObservableGattDeviceService : INotifyPropertyChanged, IDisposable
     {
         /// <summary>
         /// Source for <see cref="Service"/>
@@ -43,6 +43,16 @@ namespace BluetoothLEExplorer.Models
                     service = value;
                     OnPropertyChanged(new PropertyChangedEventArgs("Service"));
                 }
+            }
+        }
+
+        public void Dispose()
+        {
+            var temp = service;
+            Service = null;
+            if (temp != null)
+            {
+                temp.Dispose();
             }
         }
 
@@ -94,7 +104,7 @@ namespace BluetoothLEExplorer.Models
                     OnPropertyChanged(new PropertyChangedEventArgs("SelectedCharacteristic"));
 
                     // The SelectedProperty doesn't exist when this object is first created. This takes
-                    // care of adding the correct event handler after the first time it's changed. 
+                    // care of adding the correct event handler after the first time it's changed.
                     SelectedCharacteristic_PropertyChanged();
                 }
             }
@@ -163,16 +173,12 @@ namespace BluetoothLEExplorer.Models
         {
             Service = service;
             Name = GattServiceUuidHelper.ConvertUuidToName(service.Uuid);
-            UUID = Service.Uuid.ToString();
-            GetAllCharacteristics();
+            UUID = service.Uuid.ToString();
         }
 
-        /// <summary>
-        /// Destruct by clearing characteristic list
-        /// </summary>
-        ~ObservableGattDeviceService()
+        public async Task Initialize()
         {
-            Characteristics.Clear();
+            await GetAllCharacteristics();
         }
 
         /// <summary>
@@ -182,7 +188,7 @@ namespace BluetoothLEExplorer.Models
         {
             if (hasSelectedCharacteristicPropertyChangedHandler == false)
             {
-                SelectedCharacteristic.PropertyChanged += SelectedCharacteristic_PropertyChanged;
+                selectedCharacteristic.PropertyChanged += SelectedCharacteristic_PropertyChanged;
                 hasSelectedCharacteristicPropertyChangedHandler = true;
             }
         }
@@ -194,23 +200,162 @@ namespace BluetoothLEExplorer.Models
         /// <param name="e"></param>
         private void SelectedCharacteristic_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            GattSampleContext.Context.SelectedCharacteristic = SelectedCharacteristic;
+            GattSampleContext.Context.SelectedCharacteristic = selectedCharacteristic;
+        }
+
+        /// <summary>
+        /// Turns on notifications for all characterisitics within the service
+        /// </summary>
+        public async Task<bool> TurnOnAllNotifications()
+        {
+            bool success = true;
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+                {
+                    if(!await gattchar.SetNotify())
+                    {
+                        success = false;
+                    }
+                }
+            }
+            return success;
+        }
+
+        /// <summary>
+        /// Turns off notifications for all characterisitics within the service
+        /// </summary>
+        public async Task<bool> TurnOffAllNotifications()
+        {
+            bool success = true;
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+                {
+                    if(!await gattchar.StopNotify())
+                    {
+                        success = false;
+                    }
+                }
+            }
+            return success;
+        }
+
+        /// <summary>
+        /// Turns on indications for all characterisitics within the service
+        /// </summary>
+        public async Task<bool> TurnOnAllIndications()
+        {
+            bool success = true;
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+                {
+                    if (!await gattchar.SetIndicate())
+                    {
+                        success = false;
+                    }
+                }
+            }
+            return success;
+        }
+
+        /// <summary>
+        /// Turns on notifications for all characterisitics within the service
+        /// </summary>
+        public async Task<bool> TurnOffAllIndications()
+        {
+            bool success = true;
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+                {
+                    if (!await gattchar.StopIndicate())
+                    {
+                        success = false;
+                    }
+                }
+            }
+            return success;
+        }
+
+        /// <summary>
+        /// Verify that the service has at least one characterisitic that has Notify enabled
+        /// </summary>
+        public bool CanNotify()
+        {
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Verify that the service has at least one characterisitic that has Indicate enabled
+        /// </summary>
+        public bool CanIndicate()
+        {
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Verify that all characterisitcs of the service that have Notify enabled have Notify set
+        /// </summary>
+        public bool IsNotifySet()
+        {
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify))
+                {
+                    if (!gattchar.IsNotifySet)
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Verify that all characterisitcs of the service that have Indicate enabled have Indicate set
+        /// </summary>
+        public bool IsIndicateSet()
+        {
+            foreach (var gattchar in Characteristics)
+            {
+                if (gattchar.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+                {
+                    if (!gattchar.IsIndicateSet)
+                        return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>
         /// Gets all the characteristics of this service
         /// </summary>
-        private async void GetAllCharacteristics()
+        private async Task GetAllCharacteristics()
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("ObservableGattDeviceService::getAllCharacteristics: ");
-            sb.Append(Name);
+            sb.Append(name);
 
             try
             {
                 // Request the necessary access permissions for the service and abort
                 // if permissions are denied.
-                GattOpenStatus status = await Service.OpenAsync(GattSharingMode.SharedReadAndWrite);
+                GattOpenStatus status = await service.OpenAsync(GattSharingMode.SharedReadAndWrite);
+
                 if (status != GattOpenStatus.Success && status != GattOpenStatus.AlreadyOpened)
                 {
                     string error = " - Error: " + status.ToString();
@@ -221,7 +366,7 @@ namespace BluetoothLEExplorer.Models
                     return;
                 }
 
-                GattCharacteristicsResult result = await Service.GetCharacteristicsAsync(Services.SettingsServices.SettingsService.Instance.UseCaching ? BluetoothCacheMode.Cached : BluetoothCacheMode.Uncached);
+                GattCharacteristicsResult result = await service.GetCharacteristicsAsync(Services.SettingsServices.SettingsService.Instance.UseCaching ? BluetoothCacheMode.Cached : BluetoothCacheMode.Uncached);
 
                 if (result.Status == GattCommunicationStatus.Success)
                 {
@@ -231,7 +376,9 @@ namespace BluetoothLEExplorer.Models
                     Debug.WriteLine(sb);
                     foreach (GattCharacteristic gattchar in result.Characteristics)
                     {
-                        Characteristics.Add(new ObservableGattCharacteristics(gattchar, this));
+                        ObservableGattCharacteristics temp = new ObservableGattCharacteristics(gattchar, this);
+                        await temp.Initialize();
+                        Characteristics.Add(temp);
                     }
                 }
                 else if (result.Status == GattCommunicationStatus.Unreachable)
@@ -248,7 +395,7 @@ namespace BluetoothLEExplorer.Models
             catch (Exception ex)
             {
                 Debug.WriteLine("getAllCharacteristics: Exception - {0}" + ex.Message);
-                throw;
+                Name += " - Exception: " + ex.Message;
             }
         }
 

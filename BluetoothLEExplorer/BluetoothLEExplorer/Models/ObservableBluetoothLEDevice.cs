@@ -18,13 +18,14 @@ using Windows.UI.Xaml.Media.Imaging;
 using Windows.Foundation.Metadata;
 using System.Collections;
 using System.Collections.Generic;
+using BluetoothLEExplorer.Services.GattUuidHelpers;
 
 namespace BluetoothLEExplorer.Models
 {
     /// <summary>
     /// Wrapper around <see cref="BluetoothLEDevice"/> to make it easier to use
     /// </summary>
-    public class ObservableBluetoothLEDevice : INotifyPropertyChanged, IEquatable<ObservableBluetoothLEDevice>
+    public class ObservableBluetoothLEDevice : INotifyPropertyChanged, IEquatable<ObservableBluetoothLEDevice>, IDisposable
     {
         /// <summary>
         /// Compares RSSI values between ObservableBluetoothLEDevice. Sorts based on closest to furthest where 0 is unknown
@@ -69,11 +70,11 @@ namespace BluetoothLEExplorer.Models
         /// Source for <see cref="BluetoothLEDevice"/>
         /// </summary>
         private BluetoothLEDevice bluetoothLEDevice;
-        
+
         /// <summary>
         /// Gets the bluetooth device this class wraps
         /// </summary>
-        public BluetoothLEDevice BluetoothLEDevice 
+        public BluetoothLEDevice BluetoothLEDevice
         {
             get
             {
@@ -86,7 +87,7 @@ namespace BluetoothLEExplorer.Models
                 OnPropertyChanged(new PropertyChangedEventArgs("BluetoothLEDevice"));
             }
         }
-        
+
         /// <summary>
         /// Source for <see cref="Glyph"/>
         /// </summary>
@@ -218,6 +219,31 @@ namespace BluetoothLEExplorer.Models
             }
         }
 
+        /// <summary>
+        /// Source for <see cref="CanPair"/>
+        /// </summary>
+        private bool canPair;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this device is paired
+        /// </summary>
+        public bool CanPair
+        {
+            get
+            {
+                return canPair;
+            }
+
+            set
+            {
+                if (canPair != value)
+                {
+                    canPair = value;
+                    OnPropertyChanged(new PropertyChangedEventArgs("CanPair"));
+                }
+            }
+        }
+
         private bool isSecureConnection;
 
         public bool IsSecureConnection
@@ -243,12 +269,12 @@ namespace BluetoothLEExplorer.Models
         /// <summary>
         /// Source for <see cref="Services"/>
         /// </summary>
-        private ObservableCollection<ObservableGattDeviceService> services = new ObservableCollection<ObservableGattDeviceService>();
+        private DisposableObservableCollection<ObservableGattDeviceService> services = new DisposableObservableCollection<ObservableGattDeviceService>();
 
         /// <summary>
         /// Gets the services this device supports
         /// </summary>
-        public ObservableCollection<ObservableGattDeviceService> Services
+        public DisposableObservableCollection<ObservableGattDeviceService> Services
         {
             get
             {
@@ -334,8 +360,8 @@ namespace BluetoothLEExplorer.Models
             }
         }
 
-        private Queue<int> RssiValue = new Queue<int>(10); 
-        
+        private Queue<int> RssiValue = new Queue<int>(10);
+
         /// <summary>
         /// Source for <see cref="RSSI"/>
         /// </summary>
@@ -360,36 +386,11 @@ namespace BluetoothLEExplorer.Models
                 RssiValue.Enqueue(value);
 
                 int newValue = (int)Math.Round(RssiValue.Average(), 0);
-                
+
                 if (rssi != newValue)
                 {
                     rssi = newValue;
                     OnPropertyChanged(new PropertyChangedEventArgs("RSSI"));
-                }
-            }
-        }
-
-        /// <summary>
-        /// Source for <see cref="BatteryLevel"/>
-        /// </summary>
-        private int batteryLevel = -1;
-
-        /// <summary>
-        /// Gets or sets the Battery level of this device. -1 if unknown.
-        /// </summary>
-        public int BatteryLevel
-        {
-            get
-            {
-                return batteryLevel;
-            }
-
-            set
-            {
-                if (batteryLevel != value)
-                {
-                    batteryLevel = value;
-                    OnPropertyChanged(new PropertyChangedEventArgs("BatteryLevel"));
                 }
             }
         }
@@ -404,7 +405,7 @@ namespace BluetoothLEExplorer.Models
             {
                 return bluetoothAddressAsString;
             }
-            
+
             private set
             {
                 if(bluetoothAddressAsString != value)
@@ -437,6 +438,25 @@ namespace BluetoothLEExplorer.Models
         }
 
         /// <summary>
+        /// Releases references to Services and the BluetoothLEDevice
+        /// </summary>
+        public void Dispose()
+        {
+            Services.Clear();
+            var temp = bluetoothLEDevice;
+
+            BluetoothLEDevice = null;
+
+            if (temp != null)
+            {
+                temp.ConnectionStatusChanged -= BluetoothLEDevice_ConnectionStatusChanged;
+                temp.NameChanged -= BluetoothLEDevice_NameChanged;
+                temp.Dispose();
+            }
+            IsConnected = false;
+        }
+
+        /// <summary>
         /// Initializes a new instance of the<see cref="ObservableBluetoothLEDevice" /> class.
         /// </summary>
         /// <param name="deviceInfo">The device info that describes this bluetooth device"/></param>
@@ -454,6 +474,7 @@ namespace BluetoothLEExplorer.Models
             }
 
             IsPaired = DeviceInfo.Pairing.IsPaired;
+            CanPair = DeviceInfo.Pairing.CanPair;
 
             LoadGlyph();
 
@@ -502,80 +523,90 @@ namespace BluetoothLEExplorer.Models
                 Debug.WriteLine(debugMsg + "In UI thread");
                 try
                 {
-                    
-                    if (BluetoothLEDevice == null)
+                    if (bluetoothLEDevice == null)
                     {
                         Debug.WriteLine(debugMsg + "Calling BluetoothLEDevice.FromIdAsync");
                         BluetoothLEDevice = await BluetoothLEDevice.FromIdAsync(DeviceInfo.Id);
+
+                        if (bluetoothLEDevice == null)
+                        {
+                            ret = false;
+                            Debug.WriteLine(debugMsg + "BluetoothLEDevice is null");
+
+                            MessageDialog dialog = new MessageDialog("No permission to access device", "Connection error");
+                            await dialog.ShowAsync();
+                            return;
+                        }
+                        else
+                        {
+                            // Setup our event handlers and view model properties
+                            BluetoothLEDevice.ConnectionStatusChanged += BluetoothLEDevice_ConnectionStatusChanged;
+                            BluetoothLEDevice.NameChanged += BluetoothLEDevice_NameChanged;
+                        }
                     }
                     else
                     {
                         Debug.WriteLine(debugMsg + "Previously connected, not calling BluetoothLEDevice.FromIdAsync");
                     }
 
-                    if (BluetoothLEDevice == null)
+                    Debug.WriteLine(debugMsg + "BluetoothLEDevice is " + BluetoothLEDevice.Name);
+
+                    Name = bluetoothLEDevice.Name;
+                    CanPair = DeviceInfo.Pairing.CanPair;
+                    IsPaired = DeviceInfo.Pairing.IsPaired;
+                    IsConnected = BluetoothLEDevice.ConnectionStatus == BluetoothConnectionStatus.Connected;
+
+                    UpdateSecureConnectionStatus();
+
+                    // Get all the services for this device
+                    CancellationTokenSource GetGattServicesAsyncTokenSource = new CancellationTokenSource(5000);
+
+                    BluetoothCacheMode cacheMode =  BluetoothLEExplorer.Services.SettingsServices.SettingsService.Instance.UseCaching ? BluetoothCacheMode.Cached : BluetoothCacheMode.Uncached;
+
+                    // In case we connected before, clear the service list and recreate it
+                    Services.Clear();
+
+                    var GetGattServicesAsyncTask = Task.Run(() => BluetoothLEDevice.GetGattServicesAsync(cacheMode), GetGattServicesAsyncTokenSource.Token);
+
+                    result = await GetGattServicesAsyncTask.Result;
+
+                    if (result.Status == GattCommunicationStatus.Success)
                     {
-                        ret = false;
-                        Debug.WriteLine(debugMsg + "BluetoothLEDevice is null");
-
-                        MessageDialog dialog = new MessageDialog("No permission to access device", "Connection error");
-                        await dialog.ShowAsync();
-                    }
-                    else
-                    {
-                        Debug.WriteLine(debugMsg + "BluetoothLEDevice is " + BluetoothLEDevice.Name);
-
-                        // Setup our event handlers and view model properties
-                        BluetoothLEDevice.ConnectionStatusChanged += BluetoothLEDevice_ConnectionStatusChanged;
-                        BluetoothLEDevice.NameChanged += BluetoothLEDevice_NameChanged;
-
-                        IsPaired = DeviceInfo.Pairing.IsPaired;
-                        IsConnected = BluetoothLEDevice.ConnectionStatus == BluetoothConnectionStatus.Connected;
-
-                        UpdateSecureConnectionStatus();
-
-                        Name = BluetoothLEDevice.Name;
-
-                        // Get all the services for this device
-                        CancellationTokenSource GetGattServicesAsyncTokenSource = new CancellationTokenSource(5000);
-                        
-                        BluetoothCacheMode cacheMode =  BluetoothLEExplorer.Services.SettingsServices.SettingsService.Instance.UseCaching ? BluetoothCacheMode.Cached : BluetoothCacheMode.Uncached;
-
-                        var GetGattServicesAsyncTask = Task.Run(() => BluetoothLEDevice.GetGattServicesAsync(cacheMode), GetGattServicesAsyncTokenSource.Token);
-
-                        result = await GetGattServicesAsyncTask.Result;
-
-                        if (result.Status == GattCommunicationStatus.Success)
+                        System.Diagnostics.Debug.WriteLine(debugMsg + "GetGattServiceAsync SUCCESS");
+                        foreach (var serv in result.Services)
                         {
-                            // In case we connected before, clear the service list and recreate it
-                            Services.Clear();
-
-                            System.Diagnostics.Debug.WriteLine(debugMsg + "GetGattServiceAsync SUCCESS");
-                            foreach (var serv in result.Services)
+                            if (!GattServiceUuidHelper.IsReserved(serv.Uuid))
                             {
-                                Services.Add(new ObservableGattDeviceService(serv));
+                                ObservableGattDeviceService temp = new ObservableGattDeviceService(serv);
+                                // This isn't awaited so that the user can disconnect while the services are still being enumerated
+                                temp.Initialize();
+                                Services.Add(temp);
                             }
+                            else
+                            {
+                                serv.Dispose();
+                            }
+                        }
 
-                            ServiceCount = Services.Count();
-                            ret = true;
-                        }
-                        else if (result.Status == GattCommunicationStatus.ProtocolError)
-                        {
-                            ErrorText = debugMsg + "GetGattServiceAsync Error: Protocol Error - " + result.ProtocolError.Value;
-                            System.Diagnostics.Debug.WriteLine(ErrorText);
-                            string msg = "Connection protocol error: " + result.ProtocolError.Value.ToString();
-                            var messageDialog = new MessageDialog(msg, "Connection failures");
-                            await messageDialog.ShowAsync();
+                        ServiceCount = Services.Count();
+                        ret = true;
+                    }
+                    else if (result.Status == GattCommunicationStatus.ProtocolError)
+                    {
+                        ErrorText = debugMsg + "GetGattServiceAsync Error: Protocol Error - " + result.ProtocolError.Value;
+                        System.Diagnostics.Debug.WriteLine(ErrorText);
+                        string msg = "Connection protocol error: " + result.ProtocolError.Value.ToString();
+                        var messageDialog = new MessageDialog(msg, "Connection failures");
+                        await messageDialog.ShowAsync();
 
-                        }
-                        else if (result.Status == GattCommunicationStatus.Unreachable)
-                        {
-                            ErrorText = debugMsg + "GetGattServiceAsync Error: Unreachable";
-                            System.Diagnostics.Debug.WriteLine(ErrorText);
-                            string msg = "Device unreachable";
-                            var messageDialog = new MessageDialog(msg, "Connection failures");
-                            await messageDialog.ShowAsync();
-                        }
+                    }
+                    else if (result.Status == GattCommunicationStatus.Unreachable)
+                    {
+                        ErrorText = debugMsg + "GetGattServiceAsync Error: Unreachable";
+                        System.Diagnostics.Debug.WriteLine(ErrorText);
+                        string msg = "Device unreachable";
+                        var messageDialog = new MessageDialog(msg, "Connection failures");
+                        await messageDialog.ShowAsync();
                     }
                 }
                 catch (Exception ex)
@@ -610,9 +641,12 @@ namespace BluetoothLEExplorer.Models
             // BT_Code: Pair the currently selected device.
             DevicePairingResult result = await DeviceInfo.Pairing.PairAsync();
 
+            CanPair = DeviceInfo.Pairing.CanPair;
+            IsPaired = DeviceInfo.Pairing.IsPaired;
+
             Debug.WriteLine($"Pairing result: {result.Status.ToString()}");
 
-            if (result.Status == DevicePairingResultStatus.Paired || 
+            if (result.Status == DevicePairingResultStatus.Paired ||
                 result.Status == DevicePairingResultStatus.AlreadyPaired)
             {
                 return true;
@@ -633,10 +667,18 @@ namespace BluetoothLEExplorer.Models
         private async void BluetoothLEDevice_NameChanged(BluetoothLEDevice sender, object args)
         {
             await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                Windows.UI.Core.CoreDispatcherPriority.Normal,
                 () =>
             {
-                Name = BluetoothLEDevice.Name;
+                try
+                {
+                    Name = BluetoothLEDevice.Name;
+                }
+                catch
+                {
+                    Name = "Unknown (exception)";
+                }
+
             });
         }
 
@@ -648,12 +690,20 @@ namespace BluetoothLEExplorer.Models
         private async void BluetoothLEDevice_ConnectionStatusChanged(BluetoothLEDevice sender, object args)
         {
             await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                Windows.UI.Core.CoreDispatcherPriority.Normal,
                 () =>
             {
                 IsPaired = DeviceInfo.Pairing.IsPaired;
-                IsConnected = BluetoothLEDevice.ConnectionStatus == BluetoothConnectionStatus.Connected;
-                UpdateSecureConnectionStatus();
+                CanPair = DeviceInfo.Pairing.CanPair;
+                try
+                {
+                    IsConnected = bluetoothLEDevice.ConnectionStatus == BluetoothConnectionStatus.Connected;
+                    UpdateSecureConnectionStatus();
+                }
+                catch
+                {
+                    IsConnected = false;
+                }
             });
         }
 
@@ -663,7 +713,7 @@ namespace BluetoothLEExplorer.Models
         private async void LoadGlyph()
         {
             await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                Windows.UI.Core.CoreDispatcherPriority.Normal,
                 async () =>
                 {
                     try
@@ -698,7 +748,7 @@ namespace BluetoothLEExplorer.Models
         /// <returns>Name of this characteristic</returns>
         public override string ToString()
         {
-            return this.Name;
+            return this.name;
         }
 
         /// <summary>
@@ -742,7 +792,7 @@ namespace BluetoothLEExplorer.Models
         {
             if (isSecureConnectionSupported)
             {
-                IsSecureConnection = BluetoothLEDevice.WasSecureConnectionUsedForPairing;
+                IsSecureConnection = bluetoothLEDevice.WasSecureConnectionUsedForPairing;
             }
             else
             {

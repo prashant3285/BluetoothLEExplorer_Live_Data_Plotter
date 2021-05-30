@@ -60,7 +60,7 @@ namespace BluetoothLEExplorer.ViewModels
                 Set(ref errorText, value, "ErrorText");
             }
         }
-        
+
         /// <summary>
         /// Source for <see cref="SelectedCharacteristic"/>
         /// </summary>
@@ -85,6 +85,29 @@ namespace BluetoothLEExplorer.ViewModels
         }
 
         /// <summary>
+        /// Source for <see cref="SelectedService"/>
+        /// </summary>
+        private ObservableGattDeviceService selectedService;
+
+        /// <summary>
+        /// Gets or sets the currently selected service
+        /// </summary>
+        public ObservableGattDeviceService SelectedService
+        {
+            get
+            {
+                return selectedService;
+            }
+
+            set
+            {
+                Set(ref selectedService, value, "SelectedService");
+                context.SelectedService = SelectedService;
+                NavigationService.Navigate(typeof(ServicePage));
+            }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="DeviceServicesPageViewModel" /> class.
         /// </summary>
         public DeviceServicesPageViewModel()
@@ -104,7 +127,7 @@ namespace BluetoothLEExplorer.ViewModels
         public override async Task OnNavigatedToAsync(object parameter, NavigationMode mode, IDictionary<string, object> suspensionState)
         {
             await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                Windows.UI.Core.CoreDispatcherPriority.Normal,
                 () =>
             {
             });
@@ -136,6 +159,18 @@ namespace BluetoothLEExplorer.ViewModels
         {
             args.Cancel = false;
             await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Reenumerate all services
+        /// </summary>
+        public async void Refresh()
+        {
+            Views.Busy.SetBusy(true, "Reenumerating Services for  " + Device.Name);
+
+            await Device.Connect();
+
+            Views.Busy.SetBusy(false);
         }
     }
 }

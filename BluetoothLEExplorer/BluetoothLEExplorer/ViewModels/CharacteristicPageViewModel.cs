@@ -16,6 +16,7 @@ using Windows.Storage.Streams;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Popups;
 using GattHelper.Converters;
+using BluetoothLEExplorer.Services.GattUuidHelpers;
 
 namespace BluetoothLEExplorer.ViewModels
 {
@@ -297,6 +298,12 @@ namespace BluetoothLEExplorer.ViewModels
         {
             get
             {
+                // Windows blocks writing on certain characteristics
+                if (GattServiceUuidHelper.IsReadOnly(Characteristic.Characteristic.Service.Uuid))
+                {
+                    return false;
+                }
+
                 return ( Characteristic.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write) ||
                          Characteristic.Characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse));
             }
@@ -636,6 +643,7 @@ namespace BluetoothLEExplorer.ViewModels
                     {
                         NotifyUser.Insert(0, "Unable to write data - Protocol error");
                     }
+                    ValueToWrite = String.Empty;
                 }
                 catch (Exception ex) when ((uint)ex.HResult == 0x80650003 || (uint)ex.HResult == 0x80070005)
                 {
@@ -683,6 +691,12 @@ namespace BluetoothLEExplorer.ViewModels
                 foreach (GattCharacteristicProperties p in Enum.GetValues(typeof(GattCharacteristicProperties)))
                 {
                     if (p == GattCharacteristicProperties.None)
+                    {
+                        continue;
+                    }
+
+                    if (BluetoothLEExplorer.Services.GattUuidHelpers.GattServiceUuidHelper.IsReadOnly(Characteristic.Characteristic.Service.Uuid) &&
+                        (p == GattCharacteristicProperties.Write || p == GattCharacteristicProperties.WriteWithoutResponse))
                     {
                         continue;
                     }
