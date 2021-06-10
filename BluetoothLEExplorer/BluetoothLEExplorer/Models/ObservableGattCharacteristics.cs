@@ -663,7 +663,7 @@ namespace BluetoothLEExplorer.Models
                     Debug.WriteLine("Successfully un-registered for notifications");
                     IsNotifySet = false;
 
-                    await Task.Delay(500).ContinueWith(t => Close()); // *MOD* - Close the TCPIP socket as soon as service is denotified
+                    await Task.Delay(500).ContinueWith(t => Close(SocketAlready)); // *MOD* - Close the TCPIP socket as soon as service is denotified
                     SocketAlready = false; // *MOD* - Change flag for TCPIP socket 
 
                     return true;
@@ -847,6 +847,9 @@ namespace BluetoothLEExplorer.Models
                 try
                 {
                     Value = GattConvert.ToHexString(rawData);
+                    string timestamp = DateTime.UtcNow.ToString("mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+                    Debug.WriteLine(timestamp + ":" + Value);
+                    
                 }
                 catch(Exception)
                 {
@@ -888,22 +891,263 @@ namespace BluetoothLEExplorer.Models
             }
             else if (DisplayType == DisplayTypes.Stream)
             {
+
+
                 try
                 {
-                    Value = GattConvert.ToInt64(rawData).ToString();
 
-                    if (SocketAlready)
-                    {
-                        Send(Value + "\n"); // *MOD* Send data as soon as recieved from BLE device
+                    //Value = rawData;
+                    //Debug.WriteLine(UUID);
+
+                    DataReader dataReader = DataReader.FromBuffer(rawData);
+                    byte[] bytes1 = new byte[rawData.Length];
+
+                    dataReader.ReadBytes(bytes1);
+
+                    string rawString = BitConverter.ToString(bytes1, 0);
+                    string timestamp = DateTime.UtcNow.ToString("mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+                    Debug.WriteLine(timestamp + ":" + rawString);
+
+
+                    for(int i=0; i<bytes1.Length; i=i+2){
+
+                        byte[] p = new byte[2];
+                    Array.Copy(bytes1, i, p, 0, 2);
+                    // Debug.WriteLine(BitConverter.ToString(p,0));
+                    Array.Reverse(p);
+                    int value = BitConverter.ToUInt16(p,0);
+                    qt.Enqueue(value);
+                    //Debug.WriteLine(qt.Count);
+                    
+
                     }
+                    //PrintValues(qt);
 
-                    // *MOD* optionaly you can add value to queue and send the data at a desired interval using timer
-                    // qt.Enqueue(Value); // *MOD*uncomment this to add value to queue
+                    // byte[] p1 = new byte[4];
+                    // byte[] p2 = new byte[4];
+                    // byte[] p3 = new byte[4];
+                    // byte[] p4 = new byte[4];
+                    // byte[] p5 = new byte[4];
+                    // byte[] p6 = new byte[4];
+                    // byte[] p7 = new byte[4];
+                    // byte[] p8 = new byte[4];
+                    // byte[] p9 = new byte[4];
+                    // byte[] p10 = new byte[4];
+
+                    // byte[] rp1 = new byte[4];
+                    // byte[] rp2 = new byte[4];
+                    // byte[] rp3 = new byte[4];
+                    // byte[] rp4 = new byte[4];
+                    // byte[] rp5 = new byte[4];
+                    // byte[] rp6 = new byte[4];
+                    // byte[] rp7 = new byte[4];
+                    // byte[] rp8 = new byte[4];
+                    // byte[] rp9 = new byte[4];
+                    // byte[] rp10 = new byte[4];
+
+                    // Array.Copy(bytes1, 0, p1, 0, 3);
+                    // Array.Copy(bytes1, 3, p2, 0, 3);
+                    // Array.Copy(bytes1, 6, p3, 0, 3);
+                    // Array.Copy(bytes1, 9, p4, 0, 3);
+                    // Array.Copy(bytes1, 12, p5, 0, 3);
+                    // Array.Copy(bytes1, 15, p6, 0, 3);
+                    // Array.Copy(bytes1, 18, p7, 0, 3);
+                    // Array.Copy(bytes1, 21, p8, 0, 3);
+                    // Array.Copy(bytes1, 24, p9, 0, 3);
+                    // Array.Copy(bytes1, 27, p10, 0, 3);
+
+                    // Array.Reverse(p1);
+                    // Array.Reverse(p2);
+                    // Array.Reverse(p3);
+                    // Array.Reverse(p4);
+                    // Array.Reverse(p5);
+                    // Array.Reverse(p6);
+                    // Array.Reverse(p7);
+                    // Array.Reverse(p8);
+                    // Array.Reverse(p9);
+                    // Array.Reverse(p10);
+
+                    // Array.Copy(p1, rp1, 4);
+                    // Array.Copy(p2, rp2, 4);
+                    // Array.Copy(p3, rp3, 4);
+                    // Array.Copy(p4, rp4, 4);
+                    // Array.Copy(p5, rp5, 4);
+                    // Array.Copy(p6, rp6, 4);
+                    // Array.Copy(p7, rp7, 4);
+                    // Array.Copy(p8, rp8, 4);
+                    // Array.Copy(p9, rp9, 4);
+                    // Array.Copy(p10, rp10, 4);
+
+                    // uint k1 = BitConverter.ToUInt32(rp1, 0);
+                    // int m1 = (int)k1;
+                    // m1 = (int)(m1 >> 8);
+
+                    // uint k2 = BitConverter.ToUInt32(rp2, 0);
+                    // int m2 = (int)k2;
+                    // m2 = (int)(m2 >> 8);
+
+                    // uint k3 = BitConverter.ToUInt32(rp3, 0);
+                    // int m3 = (int)k3;
+                    // m3 = (int)(m3 >> 8);
+
+                    // uint k4 = BitConverter.ToUInt32(rp4, 0);
+                    // int m4 = (int)k4;
+                    // m4 = (int)(m4 >> 8);
+
+                    // uint k5 = BitConverter.ToUInt32(rp5, 0);
+                    // int m5 = (int)k5;
+                    // m5 = (int)(m5 >> 8);
+
+                    // uint k6 = BitConverter.ToUInt32(rp6, 0);
+                    // int m6 = (int)k6;
+                    // m6 = (int)(m6 >> 8);
+
+                    // uint k7 = BitConverter.ToUInt32(rp7, 0);
+                    // int m7 = (int)k7;
+                    // m7 = (int)(m7 >> 8);
+
+                    // uint k8 = BitConverter.ToUInt32(rp8, 0);
+                    // int m8 = (int)k8;
+                    // m8 = (int)(m8 >> 8);
+
+                    // uint k9 = BitConverter.ToUInt32(rp9, 0);
+                    // int m9 = (int)k9;
+                    // m9 = (int)(m9 >> 8);
+
+                    // uint k10 = BitConverter.ToUInt32(rp10, 0);
+                    // int m10 = (int)k10;
+                    // m10 = (int)(m10 >> 8);
+
+                    /*
+                    Value = GattConvert.ToHexString(rawData);
+                    String v1 = Value.Substring(0, 2);
+                    String v2 = Value.Substring(3, 2);
+                    String v3 = Value.Substring(6, 2);
+                    String v4 = Value.Substring(9, 2);
+                    String v5 = Value.Substring(12, 2);
+                    String v6 = Value.Substring(15, 2);
+                    String v7 = Value.Substring(18, 2);
+                    String v8 = Value.Substring(21, 2);
+                    String v9 = Value.Substring(24, 2);
+                    String v10 = Value.Substring(27, 2);
+                    String v11 = Value.Substring(30, 2);
+                    String v12 = Value.Substring(33, 2);
+                    String v13 = Value.Substring(36, 2);
+                    String v14 = Value.Substring(39, 2);
+                    String v15 = Value.Substring(42, 2);
+                    String v16 = Value.Substring(45, 2);
+                    String v17 = Value.Substring(48, 2);
+                    String v18 = Value.Substring(51, 2);
+                    String v19 = Value.Substring(54, 2);
+                    String v20 = Value.Substring(57, 2);
+                    String v21 = Value.Substring(60, 2);
+                    String v22 = Value.Substring(63, 2);
+                    String v23 = Value.Substring(66, 2);
+                    String v24 = Value.Substring(69, 2);
+                    String v25 = Value.Substring(72, 2);
+                    String v26 = Value.Substring(75, 2);
+                    String v27 = Value.Substring(78, 2);
+                    String v28 = Value.Substring(81, 2);
+                    String v29 = Value.Substring(84, 2);
+                    String v30 = Value.Substring(87, 2);
+
+                    
+                    String S1 = String.Concat(v1 + v2 + v3);
+                    String S2 = String.Concat(v4 + v5 + v6);
+                    String S3 = String.Concat(v7 + v8 + v9);
+                    String S4 = String.Concat(v10 + v11 + v12);
+                    String S5 = String.Concat(v13 + v14 + v15);
+                    String S6 = String.Concat(v16 + v17 + v18);
+                    String S7 = String.Concat(v19 + v20 + v21);
+                    String S8 = String.Concat(v22 + v23 + v24);
+                    String S9 = String.Concat(v25 + v26 + v27);
+                    String S10 = String.Concat(v28 + v29 + v30);
+                    
+                    /*
+                    String S1 = String.Concat(v3 + v2 + v1);
+                    String S2 = String.Concat(v6 + v5 + v4);
+                    String S3 = String.Concat(v9 + v8 + v7);
+                    String S4 = String.Concat(v12 + v11 + v10);
+                    String S5 = String.Concat(v15 + v14 + v13);
+                    String S6 = String.Concat(v18 + v17 + v16);
+                    String S7 = String.Concat(v21 + v20 + v19);
+                    String S8 = String.Concat(v24 + v23 + v22);
+                    String S9 = String.Concat(v27 + v26 + v25);
+                    String S10 = String.Concat(v30 + v29 + v28);
+                    */
+                    /*
+                    long n1 = Int64.Parse(S1, System.Globalization.NumberStyles.HexNumber);
+                    long n2 = Int64.Parse(S2, System.Globalization.NumberStyles.HexNumber);
+                    long n3 = Int64.Parse(S3, System.Globalization.NumberStyles.HexNumber);
+                    long n4 = Int64.Parse(S4, System.Globalization.NumberStyles.HexNumber);
+                    long n5 = Int64.Parse(S5, System.Globalization.NumberStyles.HexNumber);
+                    long n6 = Int64.Parse(S6, System.Globalization.NumberStyles.HexNumber);
+                    long n7 = Int64.Parse(S7, System.Globalization.NumberStyles.HexNumber);
+                    long n8 = Int64.Parse(S8, System.Globalization.NumberStyles.HexNumber);
+                    long n9 = Int64.Parse(S9, System.Globalization.NumberStyles.HexNumber);
+                    long n10 = Int64.Parse(S10, System.Globalization.NumberStyles.HexNumber);
+                    */
+                    // string timestamp = DateTime.UtcNow.ToString("mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+
+                    //Value = (timestamp + ":" + n1.ToString() + "," + n2.ToString() + "," + n3.ToString() + "," + n4.ToString() + "," + n5.ToString() + "," + n6.ToString() + "," + n7.ToString() + "," + n8.ToString() + "," + n9.ToString() + "," + n10.ToString());
+
+
+                    // Value = (timestamp + ":" + m1.ToString() + "," + m2.ToString() + "," + m3.ToString() + "," + m4.ToString() + "," + m5.ToString() + "," + m6.ToString() + "," + m7.ToString() + "," + m8.ToString() + "," + m9.ToString() + "," + m10.ToString());
+                    // Debug.WriteLine(Value);
+
+                    /*qt.Enqueue(n1);
+                    qt.Enqueue(n2);
+                    qt.Enqueue(n3);
+                    qt.Enqueue(n4);
+                    qt.Enqueue(n5);
+                    qt.Enqueue(n6);
+                    qt.Enqueue(n7);
+                    qt.Enqueue(n8);
+                    qt.Enqueue(n9);
+                    qt.Enqueue(n10);*/
+
+                    // qt.Enqueue(m1);
+                    // qt.Enqueue(m2);
+                    // qt.Enqueue(m3);
+                    // qt.Enqueue(m4);
+                    // qt.Enqueue(m5);
+                    // qt.Enqueue(m6);
+                    // qt.Enqueue(m7);
+                    // qt.Enqueue(m8);
+                    // qt.Enqueue(m9);
+                    // qt.Enqueue(m10);
+
+                    //if (SocketAlready)
+                    //{ Send("100,200,300");
+                    //    Send("\n"); }
+
                 }
                 catch (Exception)
                 {
-                    Value = "Error: Invalid Custom String";
+                    Value = "Error: Invalid CUSTOM String";
                 }
+
+
+
+
+                // try
+                // {
+                //     //Value = GattConvert.ToInt64(rawData).ToString();
+                //     Value = GattConvert.ToHexString(rawData);
+                //     Debug.WriteLine(Value);
+
+                //   if (SocketAlready)
+                //    {
+                //         Send(Value + "\n"); // *MOD* Send data as soon as recieved from BLE device
+                //     }
+
+                //     // *MOD* optionaly you can add value to queue and send the data at a desired interval using timer
+                //     // qt.Enqueue(Value); // *MOD*uncomment this to add value to queue
+                // }
+                // catch (Exception)
+                // {
+                //     Value = "Error: Invalid Custom String";
+                // }
             }
         }
 
@@ -925,7 +1169,7 @@ namespace BluetoothLEExplorer.Models
                 _writer = new DataWriter(_socket.OutputStream);
                 
                 SocketAlready = true; // *MOD* - Once TCPIP socket is established change the flag
-                await Task.Delay(300).ContinueWith(t => StopWatch());  // *MOD* -Comment this line you dont want data to be send at custom timed interval
+                await Task.Delay(2000).ContinueWith(t => StopWatch());  // *MOD* -Comment this line you dont want data to be send at custom timed interval
 
             }
             catch (Exception ex)
@@ -956,11 +1200,15 @@ namespace BluetoothLEExplorer.Models
             }
         }
 
-        public void Close() // *MOD*  - This method close the existing TCPIP connection
+        public void Close(bool socketStatus) // *MOD*  - This method close the existing TCPIP connection
         {
-            _writer.DetachStream();
-            _writer.Dispose();
-            _socket.Dispose();
+            if (socketStatus)
+            {
+                _writer.DetachStream();
+                _writer.Dispose();
+                _socket.Dispose();
+            }
+            
         }
 
            
@@ -978,7 +1226,7 @@ namespace BluetoothLEExplorer.Models
         {
 
             // *MOD* - Check if queue onot empty and not null, then perform operation specific to Characterestic UUID
-            /* 
+            
             if (qt.Count != 0)
             {
 
@@ -986,20 +1234,20 @@ namespace BluetoothLEExplorer.Models
                 if (first != null)
                 {
 
-                    if (UUID == "00004a37-0000-1000-8000-00805f9b34fb")
-                    {
-                      
-                        Int32.TryParse(first, out yourData1);
+                    // if (UUID == "00004a37-0000-1000-8000-00805f9b34fb")
+                    // {
+                        int yourData1; 
+                        int.TryParse(first, out yourData1);
                         qt.Dequeue();
 
-                        yourData2  = 2 * YourData1; // Your desired operations
+                        //yourData2  = 2 * YourData1; // Your desired operations
             
-                        Send(yourData1 + "," + yourData2 + "\n"); // *MOD* send your data stream seperated by "," and ending with \n
-                    }
+                        Send(yourData1 + "\n"); // *MOD* send your data stream seperated by "," and ending with \n
+                    // }
                 }
             }
             
-             */
+            
 
             if (!SocketAlready)  // *MOD* - Close timer as when the service is denotified
             {
@@ -1007,6 +1255,12 @@ namespace BluetoothLEExplorer.Models
                 
             }
         }
+
+        public static void PrintValues( IEnumerable myCollection )  {
+      foreach ( Object obj in myCollection )
+         Console.Write( " {0}", obj );
+      Console.WriteLine();
+   }
 
 
         /// <summary>
